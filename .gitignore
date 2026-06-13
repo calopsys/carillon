@@ -1,0 +1,12 @@
+# Build artifacts
+/carillon
+/bin/
+/dist/
+*.out
+*.test
+coverage.html
+
+# Local env / secrets
+*.env
+/creds/
+/config.toml

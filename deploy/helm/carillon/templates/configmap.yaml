@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "carillon.fullname" . }}-config
+  labels:
+    {{- include "carillon.labels" . | nindent 4 }}
+data:
+  # config.toml holds only structural config and secret file/env references —
+  # never secret values (those come from the mounted Secret files).
+  config.toml: |
+    {{- .Values.config | nindent 4 }}

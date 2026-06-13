@@ -1,0 +1,81 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "carillon.fullname" . }}
+  labels:
+    {{- include "carillon.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  startingDeadlineSeconds: {{ .Values.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "carillon.selectorLabels" . | nindent 12 }}
+          annotations:
+            # Roll the next Job when the tracking config changes.
+            checksum/config: {{ .Values.config | sha256sum }}
+        spec:
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: carillon
+              image: {{ include "carillon.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["run"]
+              env:
+                - name: CARILLON_CONFIG
+                  value: /etc/carillon/config.toml
+                {{- $url := include "carillon.redisUrl" . }}
+                {{- if $url }}
+                - name: CARILLON_REDIS_URL
+                  value: {{ $url | quote }}
+                {{- end }}
+                {{- with .Values.extraEnv }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/carillon
+                  readOnly: true
+                {{- if include "carillon.hasSecret" . }}
+                - name: secrets
+                  mountPath: {{ .Values.secrets.mountPath }}
+                  readOnly: true
+                {{- end }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+          volumes:
+            - name: config
+              configMap:
+                name: {{ include "carillon.fullname" . }}-config
+            {{- if include "carillon.hasSecret" . }}
+            - name: secrets
+              secret:
+                secretName: {{ include "carillon.secretName" . }}
+            {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

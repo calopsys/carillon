@@ -1,0 +1,6 @@
+[Unit]
+Description=Carillon Valkey data volume
+
+[Volume]
+# Named volume holding the high-water marks (carillon:hwm:<name>). Persists
+# across container restarts; removing it re-baselines every tracker.

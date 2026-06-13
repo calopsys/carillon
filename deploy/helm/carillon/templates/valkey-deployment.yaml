@@ -1,0 +1,65 @@
+{{- if .Values.valkey.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carillon.valkeyFullname" . }}
+  labels:
+    {{- include "carillon.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single writer over one RWO volume
+  selector:
+    matchLabels:
+      {{- include "carillon.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: valkey
+  template:
+    metadata:
+      labels:
+        {{- include "carillon.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: valkey
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999 # valkey user in the official image
+        fsGroup: 999
+      containers:
+        - name: valkey
+          image: {{ .Values.valkey.image }}
+          imagePullPolicy: {{ .Values.valkey.pullPolicy }}
+          args: ["valkey-server", "/usr/local/etc/valkey/valkey.conf"]
+          ports:
+            - containerPort: 6379
+              name: valkey
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/valkey
+              readOnly: true
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            tcpSocket: { port: valkey }
+            initialDelaySeconds: 5
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "ping"]
+            initialDelaySeconds: 2
+          resources:
+            {{- toYaml .Values.valkey.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "carillon.valkeyFullname" . }}
+        - name: data
+          {{- if .Values.valkey.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "carillon.valkeyFullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

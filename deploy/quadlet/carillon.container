@@ -1,0 +1,24 @@
+[Unit]
+Description=Carillon release check (one-shot, timer-driven)
+Requires=valkey.service
+After=valkey.service
+
+[Container]
+Image=ghcr.io/calopsys/carillon:latest
+# No ContainerName: each timer firing gets a fresh ephemeral container, so
+# back-to-back runs never collide on a name.
+Network=carillon.network
+Environment=CARILLON_CONFIG=/etc/carillon/config.toml
+Environment=CARILLON_REDIS_URL=redis://valkey:6379/0
+# Secrets (CARILLON_CRED_GITHUB, CARILLON_MM_DEFAULT). Copy carillon.env.example
+# to ~/.config/carillon/carillon.env and fill it in (chmod 600).
+EnvironmentFile=%h/.config/carillon/carillon.env
+Volume=%h/.config/carillon/config.toml:/etc/carillon/config.toml:ro,Z
+Exec=run
+
+[Service]
+# Run to completion: the timer waits for this single run to finish.
+Type=oneshot
+
+# No [Install] section: this unit is activated by carillon.timer, never enabled
+# directly (so it does not start at boot).

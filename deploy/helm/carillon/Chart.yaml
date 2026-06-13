@@ -1,0 +1,16 @@
+apiVersion: v2
+name: carillon
+description: Track new releases of GitHub/GitLab/Forgejo tools and OCI images, notify Mattermost (run as a CronJob).
+type: application
+# version is the chart version; appVersion tracks the Carillon image tag.
+version: 0.1.0
+appVersion: "v0.1.0"
+home: https://github.com/calopsys/carillon
+sources:
+  - https://github.com/calopsys/carillon
+keywords:
+  - release-tracking
+  - mattermost
+  - cronjob
+maintainers:
+  - name: calopsys

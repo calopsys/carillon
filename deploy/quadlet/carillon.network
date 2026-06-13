@@ -1,0 +1,7 @@
+[Unit]
+Description=Carillon container network
+
+[Network]
+# A dedicated network so the Carillon run container resolves the Valkey
+# container by name (DNS via aardvark). Quadlet auto-starts this when a
+# container references Network=carillon.network.

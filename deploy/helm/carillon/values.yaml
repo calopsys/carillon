@@ -1,0 +1,112 @@
+# Default values for the Carillon chart.
+
+image:
+  repository: ghcr.io/calopsys/carillon
+  # tag defaults to .Chart.AppVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# --- CronJob schedule & policy ----------------------------------------------
+schedule: "0 * * * *" # hourly
+concurrencyPolicy: Forbid # never overlap runs
+startingDeadlineSeconds: 120
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+backoffLimit: 1 # a tracker failure exits non-zero; don't hammer retries
+activeDeadlineSeconds: 600
+
+# --- Carillon tracking config (rendered into a ConfigMap) -------------------
+# This is config.toml verbatim. Secrets are NEVER inlined here — they are
+# referenced by env name and supplied via the Secret below. Override the whole
+# file at install time with:  --set-file config=./config.toml
+config: |
+  concurrency = 4
+
+  [notify]
+  default_webhook = "mm_default"
+  [notify.webhooks]
+  mm_default = { file = "/var/run/secrets/carillon/mattermost-webhook" }
+
+  [credentials.github]
+  file = "/var/run/secrets/carillon/github-token"
+
+  [[track]]
+  name       = "helm"
+  source     = "github"
+  repo       = "helm/helm"
+  pattern    = "semver"
+  credential = "github"
+
+  [[track]]
+  name    = "forgejo"
+  source  = "forgejo"
+  repo    = "forgejo/forgejo"
+  ref     = "releases"
+  pattern = "semver"
+
+# --- Secrets ----------------------------------------------------------------
+# Mounted as read-only files at `mountPath`, one file per key. `config` resolves
+# each secret by path (e.g. credentials.github.file = "<mountPath>/<key>"), so
+# the keys are arbitrary filenames — whatever your config references. Either let
+# the chart create the Secret from `secrets.files`, or point at one you manage
+# yourself (existingSecret), mounted the same way.
+#
+# Files are preferred over env on Kubernetes: env vars leak into `kubectl
+# describe pod`, child processes, and crash dumps.
+secrets:
+  create: true
+  mountPath: /var/run/secrets/carillon
+  # name: value pairs; each becomes a file at {mountPath}/{name}. The default
+  # config above references github-token and mattermost-webhook. Example:
+  #   files:
+  #     github-token: ghp_xxxxxxxx                          # raises the GitHub rate limit
+  #     mattermost-webhook: https://mattermost/hooks/xxx    # Mattermost webhook URL
+  files: {}
+existingSecret: ""
+
+# Extra env vars appended to the Carillon container.
+extraEnv: []
+
+# --- State store ------------------------------------------------------------
+# Bundled Valkey (Redis-compatible). Disable to bring your own and set
+# externalRedisUrl instead. Carillon connects over the redis:// protocol.
+valkey:
+  enabled: true
+  image: valkey/valkey:8-alpine
+  pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+# Used only when valkey.enabled=false, e.g. "redis://my-redis:6379/0".
+# Leave both off for a stateless install (every run re-notifies current latest).
+externalRedisUrl: ""
+
+# --- Carillon container -----------------------------------------------------
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { memory: 256Mi }
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532 # distroless nonroot
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,32 @@
+# Trimmed example config for the Podman Quadlet stack.
+# See ../../docs/regex.md for the pattern/compare model and
+# ../../docs/config.example.toml for the fully-commented reference.
+#
+# Secrets are referenced by env name only and supplied via carillon.env
+# (EnvironmentFile in carillon.container) — never inline here.
+
+concurrency = 4
+
+# Comment out the whole [notify] block to run in log-only mode.
+[notify]
+default_webhook = "mm_default"
+[notify.webhooks]
+mm_default = { env = "CARILLON_MM_DEFAULT" }
+
+# Public-read-only GitHub token (raises the rate limit). Resolved from the env.
+[credentials.github]
+env = "CARILLON_CRED_GITHUB"
+
+[[track]]
+name       = "helm"
+source     = "github"
+repo       = "helm/helm"
+pattern    = "semver"
+credential = "github"
+
+[[track]]
+name    = "forgejo"
+source  = "forgejo"
+repo    = "forgejo/forgejo"
+ref     = "releases"
+pattern = "semver"

@@ -1,0 +1,23 @@
+[Unit]
+Description=Valkey state store for Carillon
+
+[Container]
+Image=docker.io/valkey/valkey:8-alpine
+ContainerName=valkey
+Network=carillon.network
+Volume=valkey.volume:/data
+# Persistence + noeviction config (copy valkey.conf to ~/.config/carillon/).
+Volume=%h/.config/carillon/valkey.conf:/usr/local/etc/valkey/valkey.conf:ro,Z
+Exec=valkey-server /usr/local/etc/valkey/valkey.conf
+HealthCmd=valkey-cli ping
+HealthInterval=10s
+HealthTimeout=3s
+HealthStartPeriod=5s
+HealthRetries=5
+
+[Service]
+Restart=always
+
+[Install]
+# Keep Valkey running so timer-driven Carillon runs always find it up.
+WantedBy=default.target

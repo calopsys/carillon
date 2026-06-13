@@ -1,0 +1,30 @@
+Carillon is installed as a CronJob ({{ .Values.schedule | quote }}).
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Image:     {{ include "carillon.image" . }}
+
+State store:
+{{- if .Values.valkey.enabled }}
+  bundled Valkey at {{ include "carillon.valkeyFullname" . }}:6379 (persistent: {{ .Values.valkey.persistence.enabled }})
+{{- else if .Values.externalRedisUrl }}
+  external: {{ .Values.externalRedisUrl }}
+{{- else }}
+  NONE (stateless) — every run re-notifies each tracker's current latest.
+{{- end }}
+
+{{- if and .Values.secrets.create (not .Values.secrets.files) (not .Values.existingSecret) }}
+
+WARNING: no secrets set. The files your config references under
+{{ .Values.secrets.mountPath }} (e.g. github-token for the GitHub rate limit,
+mattermost-webhook for delivery) must be supplied. Set them:
+  helm upgrade {{ .Release.Name }} ... \
+    --set secrets.files.github-token=ghp_xxx \
+    --set secrets.files.mattermost-webhook=https://mattermost.example.com/hooks/xxx
+{{- end }}
+
+Trigger an ad-hoc run now (don't wait for the schedule):
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "carillon.fullname" . }} {{ include "carillon.fullname" . }}-manual
+
+Tail the logs of the latest run:
+  kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/name={{ include "carillon.name" . }} --tail=100

@@ -1,0 +1,113 @@
+# Carillon configuration (TOML).
+#
+# Delivered as a Kubernetes ConfigMap and mounted into the pod. Secrets (API
+# tokens, the Redis URL, Mattermost webhook URLs) NEVER live here — they are
+# resolved from mounted files or environment variables (see [credentials] and
+# [notify.webhooks] below). See docs/regex.md for the pattern/compare model and
+# docs/kubernetes.md for deployment.
+
+# Bounded worker pool for processing trackers concurrently. Optional, default 4.
+concurrency = 4
+
+# ---------------------------------------------------------------------------
+# [patterns.*] — a reusable library of match/compare specs referenced by name
+# from a [[track]]. The `semver` pattern is built in (shown here for clarity);
+# redefining it overrides the builtin. See docs/regex.md.
+# ---------------------------------------------------------------------------
+[patterns.semver]
+regex   = '^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$'
+compare = ["major", "minor", "patch"]
+
+[patterns.minio_release]
+regex   = '^RELEASE\.(?P<year>\d+)-(?P<month>\d+)-(?P<day>\d+)T.*Z$'
+compare = ["year", "month", "day"]
+
+# ---------------------------------------------------------------------------
+# [credentials] — logical name -> secret ref. Each entry sets EXACTLY ONE of
+# `file` (a mounted k8s Secret path) or `env` (an env var, e.g. from a
+# secretKeyRef). A [[track]] with no `credential` makes ANONYMOUS requests.
+#   - github/gitlab: the secret is the API token, used verbatim in the header.
+#   - oci: the secret is "username:password" for the registry token endpoint.
+# ---------------------------------------------------------------------------
+[credentials]
+gh_pat  = { file = "/etc/carillon/creds/gh_pat" }
+quay_ro = { env  = "CARILLON_CRED_QUAY_RO" }
+
+# ---------------------------------------------------------------------------
+# [notify] — OPTIONAL. Omit the whole section to run in log-only mode (each new
+# release is logged as structured JSON instead of posted to Mattermost).
+# ---------------------------------------------------------------------------
+[notify]
+default_webhook = "mm_default"
+# Optionally override the message body template (Go text/template over the
+# event: .Name .Version .Previous .URL .Body .Source .Identifier .FirstSeen).
+# template = "**{{.Name}}** {{.Version}} is out"
+
+[notify.webhooks]
+mm_default  = { file = "/etc/carillon/creds/mm_default_url" }
+mm_security = { file = "/etc/carillon/creds/mm_security_url" }
+
+# ---------------------------------------------------------------------------
+# [[track]] — the artifacts to watch. `name` is the STABLE identity (the DB key);
+# renaming a tracker re-baselines it. source is github | gitlab | oci.
+# ---------------------------------------------------------------------------
+
+# GitHub, git tags (the default), pinned to the semver pattern.
+[[track]]
+name       = "traefik"
+source     = "github"
+repo       = "traefik/traefik"
+pattern    = "semver"
+credential = "gh_pat"
+
+# GitHub, published Releases (gives release notes in the notification).
+[[track]]
+name    = "argo-cd"
+source  = "github"
+repo    = "argoproj/argo-cd"
+ref     = "releases"
+pattern = "semver"
+
+# Same repo, a second tracker pinned to the v2 line only (distinct name).
+# The regex doubles as the tracking scope: v3+ never matches, so never notifies.
+[[track]]
+name    = "traefik-v2"
+source  = "github"
+repo    = "traefik/traefik"
+regex   = '^v2\.(?P<minor>\d+)\.(?P<patch>\d+)$'
+# compare omitted -> defaults to [minor, patch]
+
+# Self-hosted GitLab instance (base_url), private project (credential).
+[[track]]
+name       = "internal-tool"
+source     = "gitlab"
+base_url   = "https://gitlab.example.com"
+repo       = "platform/internal-tool"
+pattern    = "semver"
+credential = "gh_pat"
+
+# Forgejo project on Codeberg (host defaults to codeberg.org), releases mode.
+# For a self-hosted Forgejo, add base_url = "https://git.example.com".
+[[track]]
+name    = "woodpecker"
+source  = "forgejo"
+repo    = "Woodpecker/woodpecker"
+ref     = "releases"
+pattern = "semver"
+
+# OCI image on quay.io with a non-semver RELEASE scheme; routed to a separate
+# channel via a per-tracker webhook override.
+[[track]]
+name       = "minio"
+source     = "oci"
+image      = "quay.io/minio/minio"
+pattern    = "minio_release"
+credential = "quay_ro"
+webhook    = "mm_security"
+
+# OCI image on Docker Hub (anonymous, semver). Host defaults to docker.io.
+[[track]]
+name    = "redis"
+source  = "oci"
+image   = "redis"
+regex   = '^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$'

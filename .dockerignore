@@ -1,0 +1,12 @@
+bin/
+dist/
+*.out
+*.test
+coverage.html
+.git/
+.github/
+deploy/
+docs/
+*.md
+.golangci.yml
+.opencode/

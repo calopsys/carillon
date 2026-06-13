@@ -1,0 +1,19 @@
+{{- if .Values.valkey.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "carillon.valkeyFullname" . }}
+  labels:
+    {{- include "carillon.labels" . | nindent 4 }}
+data:
+  valkey.conf: |
+    # Persistent Valkey for Carillon's high-water marks. Keys have no TTL and must
+    # never be evicted: an evicted key re-baselines that tracker and re-notifies
+    # its current latest on the next run.
+    appendonly yes
+    appendfsync everysec
+    maxmemory-policy noeviction
+    save 900 1
+    save 300 10
+    dir /data
+{{- end }}

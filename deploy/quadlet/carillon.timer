@@ -1,0 +1,12 @@
+[Unit]
+Description=Schedule Carillon release checks
+
+[Timer]
+# Fire hourly; Persistent catches up one missed run after downtime, and the
+# randomized delay avoids hammering upstreams exactly on the hour.
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
