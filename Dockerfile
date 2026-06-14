@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- build -------------------------------------------------------------------
-FROM golang:1.26-alpine AS build
+FROM golang:1.26.4-alpine AS build
 WORKDIR /src
 
 # CA bundle for the scratch runtime (HTTPS to GitHub/GitLab/registries/webhook).
