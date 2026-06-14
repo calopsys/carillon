@@ -8,7 +8,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.5
 	github.com/redis/go-redis/v9 v9.20.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.21.0
 )
 
 require (
