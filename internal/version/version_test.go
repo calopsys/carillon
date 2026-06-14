@@ -72,6 +72,53 @@ func TestMinioReleasePattern(t *testing.T) {
 	}
 }
 
+func TestOptionalComponentsDefaultZero(t *testing.T) {
+	// One tracker, mixed shapes: X.Y, X.Y.Z, X.Y.Z-rev. Absent optional numeric
+	// components count as 0, giving a constant-arity key that orders correctly.
+	s, err := Compile(
+		`^v?(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<patch>\d+))?(?:-(?P<rev>\d+))?$`,
+		[]string{"major", "minor", "patch", "rev"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keys := map[string][]int64{
+		"1.28":     {1, 28, 0, 0},
+		"1.27.1":   {1, 27, 1, 0},
+		"1.27.1-2": {1, 27, 1, 2},
+	}
+	for tag, want := range keys {
+		c, ok := s.Match(tag)
+		if !ok {
+			t.Fatalf("%s should be a candidate", tag)
+		}
+		if len(c.Key) != len(want) {
+			t.Fatalf("%s key %v, want %v", tag, c.Key, want)
+		}
+		for i := range want {
+			if c.Key[i] != want[i] {
+				t.Fatalf("%s key %v, want %v", tag, c.Key, want)
+			}
+		}
+	}
+
+	// The real-world case: a higher minor outranks a revision on a lower patch.
+	if best, ok := s.Latest([]string{"1.27.1", "1.27.1-2", "1.28"}); !ok || best.Tag != "1.28" {
+		t.Fatalf("expected 1.28 newest, got %q ok=%v", best.Tag, ok)
+	}
+	// But a revision genuinely ranks above the base patch when minor is equal.
+	if best, ok := s.Latest([]string{"1.27.1", "1.27.1-2"}); !ok || best.Tag != "1.27.1-2" {
+		t.Fatalf("expected 1.27.1-2 newest, got %q ok=%v", best.Tag, ok)
+	}
+
+	// Relaxing absent groups to 0 must not loosen matching: an optional patch is
+	// still \d+, so ".x" fails the full-match and the tag is dropped.
+	if _, ok := s.Match("1.27.x"); ok {
+		t.Fatal("1.27.x must not be a candidate (patch must be numeric)")
+	}
+}
+
 func TestUnknownCompareGroupErrors(t *testing.T) {
 	_, err := Compile(`^v(?P<major>\d+)$`, []string{"minor"})
 	if err == nil {

@@ -79,8 +79,10 @@ func namedGroups(re *regexp.Regexp) []string {
 }
 
 // Match returns the Candidate for tag if it fully matches the pattern and every
-// compare group captured an integer. ok is false for non-candidates (which are
-// simply ignored, e.g. git hashes, "latest", or out-of-scope versions).
+// compare group captured an integer (an absent optional group counts as 0, so
+// variable-length schemes like 1.28 / 1.28.1 / 1.28.1-1 compare correctly). ok is
+// false for non-candidates (which are simply ignored, e.g. git hashes, "latest",
+// or out-of-scope versions).
 func (s *Spec) Match(tag string) (c Candidate, ok bool) {
 	m := s.re.FindStringSubmatch(tag)
 	if m == nil || m[0] != tag { // require a full-string match
@@ -93,7 +95,16 @@ func (s *Spec) Match(tag string) (c Candidate, ok bool) {
 		if gi < 0 || gi >= len(m) {
 			return Candidate{}, false
 		}
-		v, err := strconv.ParseInt(m[gi], 10, 64)
+		raw := m[gi]
+		if raw == "" {
+			// An optional component absent from this tag (e.g. the missing patch
+			// in "1.28") counts as 0, so variable-arity schemes order correctly:
+			// 1.28 -> [1,28,0,0] < 1.28.1 -> [1,28,1,0]. A non-empty but
+			// non-numeric capture still disqualifies the tag below.
+			key[i] = 0
+			continue
+		}
+		v, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
 			// A non-numeric group means the tag isn't a candidate at all. But an
 			// integer that merely overflows int64 (an absurdly long but in-scope

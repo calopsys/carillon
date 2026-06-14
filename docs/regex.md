@@ -63,6 +63,28 @@ as integers, so double-digit segments order correctly.
 > compares the integer groups you name. Don't track `-rc`/`-beta` tags — exclude
 > them with the regex (a trailing `-rc1` simply won't fully match `…(?P<patch>\d+)$`).
 
+## Variable-length versions (optional components)
+
+When a project mixes shapes — `1.28`, `1.27.1`, `1.27.1-2` — make the trailing
+components optional and list them all in `compare`. An **absent numeric component
+counts as 0**, so every tag yields a constant-length key that orders correctly:
+
+```toml
+regex   = '^v?(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<patch>\d+))?(?:-(?P<rev>\d+))?$'
+compare = ["major", "minor", "patch", "rev"]
+```
+
+```
+1.27.1   -> [1, 27, 1, 0]
+1.27.1-2 -> [1, 27, 1, 2]   # rev ranks: newer than 1.27.1
+1.28     -> [1, 28, 0, 0]   # minor dominates: newer than 1.27.1-2
+```
+
+Each optional group is still `\d+`, so a non-numeric tail (`1.27.x`) simply
+doesn't match and is ignored. If a suffix like `-2` is downstream packaging you'd
+rather *not* rank on, leave `rev` out of `compare` (capture it but don't compare
+it) so only `major.minor.patch` decide order.
+
 ## The regex is your tracking scope
 
 Because a tag must fully match to be considered, the regex decides *what you are

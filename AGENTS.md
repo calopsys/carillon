@@ -50,8 +50,9 @@ not `httptest.NewServer`.
 ## Design invariants (do not break without discussion)
 
 - **One comparison mechanism**: RE2 `pattern` (full-match = candidate) + ordered
-  integer `compare` groups. No semver library, no pre-release/build semantics, no
-  string comparison. The regex is also the tracking scope.
+  integer `compare` groups; an absent optional numeric group counts as 0 (so
+  variable-length versions compare correctly). No semver library, no pre-release/
+  build semantics, no string comparison. The regex is also the tracking scope.
 - **Send-then-persist**: notify first, advance the high-water mark only if
   delivery succeeded (at-least-once; an outage retries next run).
 - **Catch-up = newest only**: one notification for the max, never per-missed.
