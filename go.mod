@@ -5,10 +5,10 @@ go 1.26.4
 require (
 	github.com/knadh/koanf/parsers/toml/v2 v2.2.2
 	github.com/knadh/koanf/providers/file v1.2.1
-	github.com/knadh/koanf/v2 v2.3.8
+	github.com/knadh/koanf/v2 v2.4.1
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sync v0.24.0
+	golang.org/x/sync v0.25.0
 )
 
 require (
